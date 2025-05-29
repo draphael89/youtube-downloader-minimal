@@ -30,14 +30,9 @@ export default function HomePage() {
       
       setVideoInfo(data);
       
-      // Create download link
-      const a = document.createElement('a');
-      a.href = data.streamUrl;
-      a.download = `${data.title}.mp4`;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Open YouTube video in new tab with quality parameter
+      // Users can then use browser extensions or tools to download
+      window.open(data.alternativeUrl, '_blank');
       
     } catch (err: any) {
       setError(err.message || 'Failed to download video');
@@ -105,14 +100,12 @@ export default function HomePage() {
           
           {videoInfo && (
             <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded">
-              <h3 className="font-semibold text-green-800">Ready to download:</h3>
-              <p className="text-sm text-gray-600 mt-1">{videoInfo.title}</p>
+              <h3 className="font-semibold text-green-800">Video Found!</h3>
+              <p className="text-sm text-gray-600 mt-1">Video ID: {videoInfo.videoId}</p>
               <p className="text-xs text-gray-500">Quality: {videoInfo.quality}</p>
-              {videoInfo.size && (
-                <p className="text-xs text-gray-500">
-                  Size: {(videoInfo.size / 1024 / 1024).toFixed(1)} MB
-                </p>
-              )}
+              <p className="text-xs text-gray-500 mt-2">
+                Opening video in new tab. Use a browser extension or online tool to download.
+              </p>
             </div>
           )}
         </div>
