@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import ytdl from 'ytdl-core';
+import { getVideoInfo, validateURL, chooseFormat } from '@/lib/ytdl-wrapper';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,7 +10,7 @@ export async function GET(request: NextRequest) {
     const url = searchParams.get('url');
     const itag = searchParams.get('itag');
     
-    if (!url || !ytdl.validateURL(url)) {
+    if (!url || !validateURL(url)) {
       return NextResponse.json(
         { error: 'Invalid YouTube URL' },
         { status: 400 }
@@ -15,16 +18,20 @@ export async function GET(request: NextRequest) {
     }
     
     try {
-      // Get video info to get the title
-      const info = await ytdl.getBasicInfo(url);
-      const title = info.videoDetails.title.replace(/[^\w\s-]/g, ''); // Sanitize filename
+      // Get video info
+      const info = await getVideoInfo(url);
+      const title = info.videoDetails.title.replace(/[^\w\s-]/g, '').substring(0, 100); // Sanitize filename
       
-      // Create a stream with the specified quality
-      const options: ytdl.downloadOptions = itag ? { quality: parseInt(itag) } : { quality: 'highest' };
+      // Get the specific format
+      let format;
+      if (itag) {
+        format = info.formats.find(f => f.itag === parseInt(itag));
+      }
       
-      // For Vercel, we need to be careful about memory usage
-      // Instead of downloading the whole file, we'll return the direct URL
-      const format = ytdl.chooseFormat(info.formats, options);
+      // Fallback to best quality if specific format not found
+      if (!format) {
+        format = chooseFormat(info.formats, { quality: 'highest' });
+      }
       
       if (!format || !format.url) {
         return NextResponse.json(
@@ -33,15 +40,22 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      // Redirect to the actual video URL
+      // Create response headers for download
+      const headers = new Headers();
+      headers.set('Content-Disposition', `attachment; filename="${title}.${format.container || 'mp4'}"`);
+      
+      // Redirect to the actual video URL with download headers
       // This lets the browser handle the download directly
-      return NextResponse.redirect(format.url);
+      return NextResponse.redirect(format.url, {
+        headers: headers,
+        status: 302
+      });
       
     } catch (error: any) {
-      console.error('Download error:', error);
+      console.error('Download error:', error.message);
       
       return NextResponse.json(
-        { error: 'Failed to process download' },
+        { error: 'Failed to process download. The video might be protected or unavailable.' },
         { status: 500 }
       );
     }
